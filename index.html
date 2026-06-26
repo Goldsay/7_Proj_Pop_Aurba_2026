@@ -3,224 +3,250 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tableau de Bord Démographique</title>
+    <title>Visualisation Démographique Interactive</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f5f7fa; color: #333; }
-        h1, h2 { color: #2c3e50; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .controls { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; gap: 15px; }
-        select { padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .full-width { grid-column: span 2; }
-        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } .full-width { grid-column: span 1; } }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f5f7fb;
+            color: #333;
+        }
+        h1 { text-align: center; color: #2c3e50; }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .chart-box {
+            background: white;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        h2 { border-bottom: 2px solid #3498db; padding-bottom: 8px; color: #34495e; }
+        .controls { margin-bottom: 15px; display: flex; gap: 10px; align-items: center; }
+        select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Tableau de Bord - Prédictions de Population</h1>
-    <p>Analyse comparative des scénarios démographiques.</p>
-
-    <div class="controls">
-        <div>
-            <label for="ageGroupType">Type de classe d'âge :</label>
-            <select id="ageGroupType" onchange="updateCharts()">
-                <option value="custom">Classes regroupées (Perso)</option>
-                <option value="detail">Classes détaillées (Trage)</option>
-            </select>
-        </div>
-        <div>
-            <label for="ageSelector">Tranche d'âge spécifique :</label>
-            <select id="ageSelector" onchange="updateCharts()"></select>
-        </div>
+    <h1>Visualisation des Scénarios Évolution Population</h1>
+    
+    <div class="chart-box">
+        <h2>1. Évolution de la population totale par scénario</h2>
+        <p style="font-size: 0.9em; color: #666;">Cliquez sur la légende pour afficher/masquer un scénario.</p>
+        <canvas id="chartTotal"></canvas>
     </div>
 
-    <div class="grid">
-        <div class="card full-width">
-            <h2>Évolution de la Population Totale par Scénario</h2>
-            <canvas id="chartTotal"></canvas>
+    <div class="chart-box">
+        <h2>2. Évolution par classe d'âge et scénario</h2>
+        <div class="controls">
+            <label for="selectAgeG2">Filtrer par classe d'âge :</label>
+            <select id="selectAgeG2" onchange="updateChart2()"></select>
         </div>
+        <canvas id="chartAgeScenario"></canvas>
+    </div>
 
-        <div class="card">
-            <h2>Évolution pour la tranche d'âge sélectionnée</h2>
-            <canvas id="chartAge"></canvas>
+    <div class="chart-box">
+        <h2>3. Comparaison des scénarios par classe d'âge (Écart à la référence INSEE 2022)</h2>
+        <div class="controls">
+            <label for="selectYearG3">Choisir l'année :</label>
+            <select id="selectYearG3" onchange="updateChart3()"></select>
         </div>
+        <canvas id="chartCompareRef"></canvas>
+    </div>
 
-        <div class="card">
-            <h2>Répartition par âge (Dernière année disponible)</h2>
-            <canvas id="chartStructure"></canvas>
+    <div class="chart-box">
+        <h2>4. Structure de la population (Répartition par classe d'âge)</h2>
+        <div class="controls">
+            <label for="selectScenarioG4">Scénario :</label>
+            <select id="selectScenarioG4" onchange="updateChart4()"></select>
+            <label for="selectYearG4">Année :</label>
+            <select id="selectYearG4" onchange="updateChart4()"></select>
         </div>
+        <canvas id="chartStructure"></canvas>
     </div>
 </div>
 
 <script>
-    let rawData = [];
-    let chartTotal, chartAge, chartStructure;
+// --- EXEMPLE DE JEU DE DONNÉES (À remplacer par tes vraies données ou à charger via fetch) ---
+const rawData = [
+    // Exemple INSEE_2022
+    { Annee: 2025, Trage: "0-19 ans", Scenario: "INSEE_2022", Pop: 15000000 },
+    { Annee: 2025, Trage: "20-59 ans", Scenario: "INSEE_2022", Pop: 35000000 },
+    { Annee: 2025, Trage: "60 ans et +", Scenario: "INSEE_2022", Pop: 18000000 },
+    { Annee: 2030, Trage: "0-19 ans", Scenario: "INSEE_2022", Pop: 14800000 },
+    { Annee: 2030, Trage: "20-59 ans", Scenario: "INSEE_2022", Pop: 34000000 },
+    { Annee: 2030, Trage: "60 ans et +", Scenario: "INSEE_2022", Pop: 19500000 },
+    { Annee: 2035, Trage: "0-19 ans", Scenario: "INSEE_2022", Pop: 14500000 },
+    { Annee: 2035, Trage: "20-59 ans", Scenario: "INSEE_2022", Pop: 33000000 },
+    { Annee: 2035, Trage: "60 ans et +", Scenario: "INSEE_2022", Pop: 21000000 },
 
-    // Fonction pour regrouper les âges selon tes critères
-    function getCustomAgeGroup(trage) {
-        if (!trage) return "Inconnu";
-        // Nettoyage de la chaîne [X;Y[
-        const clean = trage.replace('[', '').replace('[', '').replace(']', '');
-        const parts = clean.split(';');
-        const minAge = parseInt(parts[0]);
+    // Exemple Scénario Haut (Fécondité haute / forte immigration)
+    { Annee: 2025, Trage: "0-19 ans", Scenario: "Hypothese_Haute", Pop: 15200000 },
+    { Annee: 2025, Trage: "20-59 ans", Scenario: "Hypothese_Haute", Pop: 35100000 },
+    { Annee: 2025, Trage: "60 ans et +", Scenario: "Hypothese_Haute", Pop: 18000000 },
+    { Annee: 2030, Trage: "0-19 ans", Scenario: "Hypothese_Haute", Pop: 15500000 },
+    { Annee: 2030, Trage: "20-59 ans", Scenario: "Hypothese_Haute", Pop: 34800000 },
+    { Annee: 2030, Trage: "60 ans et +", Scenario: "Hypothese_Haute", Pop: 19600000 },
+    { Annee: 2035, Trage: "0-19 ans", Scenario: "Hypothese_Haute", Pop: 15800000 },
+    { Annee: 2035, Trage: "20-59 ans", Scenario: "Hypothese_Haute", Pop: 34500000 },
+    { Annee: 2035, Trage: "60 ans et +", Scenario: "Hypothese_Haute", Pop: 21200000 },
 
-        if (minAge >= 0 && minAge < 5) return "0-4 ans";
-        if (minAge >= 5 && minAge < 15) return "5-14 ans";
-        if (minAge >= 15 && minAge < 30) return "15-29 ans";
-        if (minAge >= 30 && minAge < 45) return "30-44 ans";
-        if (minAge >= 45 && minAge < 60) return "45-59 ans";
-        if (minAge >= 60 && minAge < 75) return "60-74 ans";
-        if (minAge >= 75) return "75 ans et +";
-        return "Autre";
-    }
+    // Exemple Scénario Bas (Fécondité basse)
+    { Annee: 2025, Trage: "0-19 ans", Scenario: "Hypothese_Basse", Pop: 14800000 },
+    { Annee: 2025, Trage: "20-59 ans", Scenario: "Hypothese_Basse", Pop: 34900000 },
+    { Annee: 2025, Trage: "60 ans et +", Scenario: "Hypothese_Basse", Pop: 18000000 },
+    { Annee: 2030, Trage: "0-19 ans", Scenario: "Hypothese_Basse", Pop: 14000000 },
+    { Annee: 2030, Trage: "20-59 ans", Scenario: "Hypothese_Basse", Pop: 33200000 },
+    { Annee: 2030, Trage: "60 ans et +", Scenario: "Hypothese_Basse", Pop: 19400000 },
+    { Annee: 2035, Trage: "0-19 ans", Scenario: "Hypothese_Basse", Pop: 13200000 },
+    { Annee: 2035, Trage: "20-59 ans", Scenario: "Hypothese_Basse", Pop: 31500000 },
+    { Annee: 2035, Trage: "60 ans et +", Scenario: "Hypothese_Basse", Pop: 20800000 }
+];
 
-    // Chargement du fichier CSV
-    Papa.parse("Data.csv", {
-        download: true,
-        header: true,
-        dynamicTyping: true,
-        skipEmptyLines: true,
-        delimiter: ";",
-        complete: function(results) {
-            rawData = results.data;
-            // Nettoyage des espaces dans les nombres (ex: "43 132" -> 43132)
-            rawData.forEach(row => {
-                if(typeof row.Pop === 'string') {
-                    row.Pop = parseInt(row.Pop.replace(/\s/g, ''));
+// --- EXTRACTION DES DIMENSIONS ---
+const annees = [...new Set(rawData.map(d => d.Annee))].sort((a, b) => a - b);
+const scenarios = [...new Set(rawData.map(d => d.Scenario))];
+const classesAge = [...new Set(rawData.map(d => d.Trage))].sort();
+
+const colors = {
+    'INSEE_2022': '#2c3e50',
+    'Hypothese_Haute': '#2ecc71',
+    'Hypothese_Basse': '#e74c3c',
+    'default': ['#3498db', '#9b59b6', '#f1c40f', '#e67e22']
+};
+function getColor(scenario, index) {
+    return colors[scenario] || colors.default[index % colors.default.length];
+}
+
+// Remplir les menus déroulants (Selects)
+const selectAgeG2 = document.getElementById('selectAgeG2');
+classesAge.forEach(age => selectAgeG2.add(new Option(age, age)));
+
+const selectYearG3 = document.getElementById('selectYearG3');
+annees.forEach(annee => selectYearG3.add(new Option(annee, annee)));
+
+const selectScenarioG4 = document.getElementById('selectScenarioG4');
+scenarios.forEach(scen => selectScenarioG4.add(new Option(scen, scen)));
+const selectYearG4 = document.getElementById('selectYearG4');
+annees.forEach(annee => selectYearG4.add(new Option(annee, annee)));
+
+// --- INITIALISATION DES GRAPHIQUES ---
+let chart1, chart2, chart3, chart4;
+
+// CONFIG GRAPH_1 : Population Totale
+const datasetsG1 = scenarios.map((scen, idx) => {
+    const dataPoints = annees.map(annee => {
+        return rawData
+            .filter(d => d.Scenario === scen && d.Annee === annee)
+            .reduce((sum, current) => sum + current.Pop, 0);
+    });
+    return { label: scen, data: dataPoints, borderColor: getColor(scen, idx), backgroundColor: getColor(scen, idx), tension: 0.1 };
+});
+
+chart1 = new Chart(document.getElementById('chartTotal'), {
+    type: 'line',
+    data: { labels: annees, datasets: datasetsG1 },
+    options: { responsive: true, plugins: { legend: { display: true } } }
+});
+
+// CONFIG GRAPH_2 : Évolution par classe d'âge sélectionnée
+function updateChart2() {
+    const selectedAge = selectAgeG2.value;
+    const datasetsG2 = scenarios.map((scen, idx) => {
+        const dataPoints = annees.map(annee => {
+            const match = rawData.find(d => d.Scenario === scen && d.Annee === annee && d.Trage === selectedAge);
+            return match ? match.Pop : 0;
+        });
+        return { label: scen, data: dataPoints, borderColor: getColor(scen, idx), backgroundColor: getColor(scen, idx), tension: 0.1 };
+    });
+
+    if (chart2) chart2.destroy();
+    chart2 = new Chart(document.getElementById('chartAgeScenario'), {
+        type: 'line',
+        data: { labels: annees, datasets: datasetsG2 },
+        options: { responsive: true }
+    });
+}
+
+// CONFIG GRAPH_3 : Barres - Écart à la référence INSEE 2022
+function updateChart3() {
+    const selectedYear = parseInt(selectYearG3.value);
+    
+    const datasetsG3 = scenarios.map((scen, idx) => {
+        const dataPoints = classesAge.map(age => {
+            const match = rawData.find(d => d.Scenario === scen && d.Annee === selectedYear && d.Trage === age);
+            const val = match ? match.Pop : 0;
+
+            if (scen === 'INSEE_2022') return val; // Valeur brute pour la réf
+            
+            // Pour les autres, on peut afficher la valeur brute ou l'écart (ici valeur brute avec label d'écart en tooltip)
+            return val;
+        });
+        return { label: scen, data: dataPoints, backgroundColor: getColor(scen, idx) };
+    });
+
+    if (chart3) chart3.destroy();
+    chart3 = new Chart(document.getElementById('chartCompareRef'), {
+        type: 'bar',
+        data: { labels: classesAge, datasets: datasetsG3 },
+        options: {
+            responsive: true,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            let value = context.parsed.y;
+                            if (label !== 'INSEE_2022') {
+                                const refMatch = rawData.find(d => d.Scenario === 'INSEE_2022' && d.Annee === selectedYear && d.Trage === context.label);
+                                if (refMatch) {
+                                    let diff = value - refMatch.Pop;
+                                    let pct = ((diff / refMatch.Pop) * 100).toFixed(1);
+                                    let sign = diff >= 0 ? '+' : '';
+                                    return `${label}: ${value.toLocaleString()} (${sign}${pct}% vs Réf)`;
+                                }
+                            }
+                            return `${label}: ${value.toLocaleString()}`;
+                        }
+                    }
                 }
-            });
-            initDashboard();
-        }
-    });
-
-    function initDashboard() {
-        populateAgeSelector();
-        updateCharts();
-    }
-
-    function populateAgeSelector() {
-        const type = document.getElementById('ageGroupType').value;
-        const selector = document.getElementById('ageSelector');
-        const currentVal = selector.value;
-        selector.innerHTML = '';
-
-        let TargetGroupes = new Set();
-        rawData.forEach(row => {
-            if(type === 'custom') {
-                TargetGroupes.add(getCustomAgeGroup(row.Trage));
-            } else {
-                if(row.Trage) TargetGroupes.add(row.Trage);
             }
-        });
-
-        // Trier et ajouter les options
-        Array.from(TargetGroupes).sort().forEach(g => {
-            const opt = document.createElement('option');
-            opt.value = g;
-            opt.textContent = g;
-            selector.appendChild(opt);
-        });
-        
-        if (currentVal && selector.querySelector(`option[value="${currentVal}"]`)) {
-            selector.value = currentVal;
         }
-    }
+    });
+}
 
-    // Écouteur pour changer le sélecteur d'âge si on change de type de groupe
-    document.getElementById('ageGroupType').addEventListener('change', () => {
-        populateAgeSelector();
-        updateCharts();
+// CONFIG GRAPH_4 (BONUS) : Structure globale (Camembert / Donut) pour voir les parts
+function updateChart4() {
+    const selectedYear = parseInt(selectYearG4.value);
+    const selectedScen = selectScenarioG4.value;
+
+    const dataPoints = classesAge.map(age => {
+        const match = rawData.find(d => d.Scenario === selectedScen && d.Annee === selectedYear && d.Trage === age);
+        return match ? match.Pop : 0;
     });
 
-    function updateCharts() {
-        const ageType = document.getElementById('ageGroupType').value;
-        const selectedAge = document.getElementById('ageSelector').value;
+    if (chart4) chart4.destroy();
+    chart4 = new Chart(document.getElementById('chartStructure'), {
+        type: 'doughnut',
+        data: {
+            labels: classesAge,
+            datasets: [{
+                data: dataPoints,
+                backgroundColor: colors.default
+            }]
+        },
+        options: { responsive: true }
+    });
+}
 
-        // Extraction des Années et Scénarios uniques
-        const annees = [...new Set(rawData.map(r => r.Annee))].sort();
-        const scenarios = [...new Set(rawData.map(r => r.Scenario))];
-
-        // Couleurs pour les scénarios
-        const colors = {
-            'INSEE_2022': '#2ecc71', // Référence en Vert
-            '4_Desserrement': '#3498db', // Bleu
-            'Autre': '#e74c3c'
-        };
-
-        // --- 1. DONNÉES POPULATION TOTALE ---
-        const datasetsTotal = scenarios.map(scen => {
-            const dataAnnee = annees.map(an => {
-                return rawData
-                    .filter(r => r.Scenario === scen && r.Annee === an)
-                    .reduce((sum, r) => sum + (r.Pop || 0), 0);
-            });
-            return {
-                label: scen + (scen === 'INSEE_2022' ? ' (Référence)' : ''),
-                data: dataAnnee,
-                borderColor: colors[scen] || '#95a5a6',
-                fill: false,
-                tension: 0.1
-            };
-        });
-
-        if(chartTotal) chartTotal.destroy();
-        chartTotal = new Chart(document.getElementById('chartTotal'), {
-            type: 'line',
-            data: { labels: annees, datasets: datasetsTotal }
-        });
-
-        // --- 2. DONNÉES PAR CLASSE D'ÂGE SÉLECTIONNÉE ---
-        const datasetsAge = scenarios.map(scen => {
-            const dataAnnee = annees.map(an => {
-                return rawData
-                    .filter(r => r.Scenario === scen && r.Annee === an && 
-                        (ageType === 'custom' ? getCustomAgeGroup(r.Trage) === selectedAge : r.Trage === selectedAge))
-                    .reduce((sum, r) => sum + (r.Pop || 0), 0);
-            });
-            return {
-                label: scen,
-                data: dataAnnee,
-                borderColor: colors[scen] || '#95a5a6',
-                fill: false,
-                tension: 0.1
-            };
-        });
-
-        if(chartAge) chartAge.destroy();
-        chartAge = new Chart(document.getElementById('chartAge'), {
-            type: 'line',
-            data: { labels: annees, datasets: datasetsAge }
-        });
-
-        // --- 3. STRUCTURE PAR ÂGE (Dernière Année) ---
-        const maxAnnee = Math.max(...annees);
-        const structureLabels = [...new Set(rawData.map(r => ageType === 'custom' ? getCustomAgeGroup(r.Trage) : r.Trage))].sort();
-        
-        const datasetsStructure = scenarios.map(scen => {
-            const dataStructure = structureLabels.map(label => {
-                return rawData
-                    .filter(r => r.Scenario === scen && r.Annee === maxAnnee && 
-                        (ageType === 'custom' ? getCustomAgeGroup(r.Trage) === label : r.Trage === label))
-                    .reduce((sum, r) => sum + (r.Pop || 0), 0);
-            });
-            return {
-                label: scen,
-                data: dataStructure,
-                backgroundColor: colors[scen] || '#95a5a6',
-            };
-        });
-
-        if(chartStructure) chartStructure.destroy();
-        chartStructure = new Chart(document.getElementById('chartStructure'), {
-            type: 'bar',
-            data: { labels: structureLabels, datasets: datasetsStructure },
-            options: { scales: { y: { beginAtZero: true } } }
-        });
-    }
+// Initialisation au chargement
+updateChart2();
+updateChart3();
+updateChart4();
 </script>
 </body>
 </html>
